@@ -1,0 +1,7 @@
+<library path="rrt_planner">
+  <class name="rrt_planner/RRTPlanner"
+         type="rrt_planner::RRTPlanner"
+         base_class_type="nav2_core::GlobalPlanner">
+    <description>Vanilla RRT global planner - baseline for RRT* comparison</description>
+  </class>
+</library>

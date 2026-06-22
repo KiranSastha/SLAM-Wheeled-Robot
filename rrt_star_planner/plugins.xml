@@ -1,0 +1,7 @@
+<library path="rrt_star_planner">
+  <class name="rrt_star_planner/RRTStarPlanner"
+         type="rrt_star_planner::RRTStarPlanner"
+         base_class_type="nav2_core::GlobalPlanner">
+    <description>RRT* asymptotically-optimal global planner for Nav2 (Jazzy)</description>
+  </class>
+</library>

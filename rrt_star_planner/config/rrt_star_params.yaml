@@ -1,0 +1,13 @@
+# RRT* Planner Parameters
+# Paste the GridBased block into your nav2_params.yaml under planner_server
+planner_server:
+  ros__parameters:
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "rrt_star_planner/RRTStarPlanner"
+      max_iterations:   3000   # Increase for large/complex maps
+      step_size:        0.15   # metres per tree extension step
+      goal_tolerance:   0.25   # metres — acceptance radius at goal
+      goal_bias:        0.10   # [0..1] probability of sampling goal
+      rewire_radius:    0.75   # metres — neighbourhood for rewiring
+      lethal_threshold: 253    # Nav2: INSCRIBED=253, LETHAL=254

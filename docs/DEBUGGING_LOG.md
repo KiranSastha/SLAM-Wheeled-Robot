@@ -174,3 +174,87 @@ of `RRTStarPlanner`.
 5. **Full clean restarts work better than incremental patching** once
    more than one lifecycle node has failed in a session — stale
    `ros2 daemon` state and zombie processes caused several false leads.
+
+
+---
+
+# Debugging Log — Phase 2 (MPPI) Integration
+
+## 8. MPPI CostCritic segfault — `consider_footprint` / costmap shape mismatch
+
+**Symptom:** Nav2 container crashes with `SIGSEGV` immediately after loading
+`ConstraintCritic`, right after a warning:
+```
+[controller_server]: Inconsistent configuration in collision checking.
+Please verify the robot's shape settings in both the costmap and the cost critic.
+```
+
+**Cause:** `CostCritic.consider_footprint: true` requires the costmap to
+define an actual `footprint` polygon. This project's costmap config uses
+a simple circular `robot_radius: 0.22` everywhere (no footprint polygon
+defined anywhere). With `consider_footprint: true` and no footprint to
+read, the footprint-cost lookup inside `CostCritic` segfaults instead of
+failing gracefully.
+
+**Diagnosis method:** Searched for the exact warning text combined with
+"segfault" — found official Nav2 Jazzy example configs that explicitly
+use `consider_footprint: false` for radius-based (non-footprint) robots,
+confirming the mismatch.
+
+**Fix:**
+```yaml
+CostCritic:
+  consider_footprint: false   # was: true
+```
+
+## 9. MPPI params file missing required Jazzy node configs
+
+**Symptom:**
+```
+[collision_monitor]: Error while getting parameters: parameter 'observation_sources' is not initialized
+[lifecycle_manager_navigation]: Failed to bring up all requested nodes. Aborting bringup.
+```
+
+**Cause:** `nav2_params_mppi.yaml` was originally authored as a separate
+file rather than branched from the already-fixed, complete
+`nav2_params_rrtstar.yaml`. It never inherited the `collision_monitor`,
+`route_server`, and `docking_server` blocks (see Phase 1 issue #4) — the
+same category of bug, just not yet ported to this file.
+
+**Fix:** Copied the complete, working blocks for all three nodes from
+the verified-working RRT* params file, and added them to
+`lifecycle_manager_navigation.node_names`.
+
+**Lesson reinforced:** Any new Nav2 params file in this project should
+always be created by copying the most recently fixed, complete file and
+editing only the specific section needed — never started from a fresh
+partial file. This is the third time a partial-override file has caused
+a bringup failure (RRT baseline, MPPI, almost DWA baseline too).
+
+## 10. DWA baseline comparison file had the same partial-override problem (caught proactively)
+
+**Symptom:** None yet encountered — caught and fixed *before* launching,
+by checking the file's line count (62 lines, clearly too short to be a
+complete Nav2 params file) before running it.
+
+**Fix:** Rather than patch the partial file again, simply reused the
+already-complete, working `nav2_params_rrtstar.yaml` directly as the DWA
+baseline file — since that file's `controller_server.FollowPath` was
+already configured as `dwb_core::DWBLocalPlanner` (DWA) the whole time.
+No edits needed; the "DWA baseline" file IS the RRT* file, which already
+contains a correct, complete DWA config.
+
+## 11. DWA aborted a navigation goal MPPI completed successfully (research finding, not a bug)
+
+**Symptom:** Sending the same goal `(1.0, 0.5)` to DWA resulted in
+`number_of_recoveries: 15`, the robot stuck oscillating near (but not at)
+the goal, ending in `Goal finished with status: ABORTED` (error_code 208).
+MPPI completed an equivalent-distance goal with `number_of_recoveries: 0`.
+
+**Not a configuration bug** — this is a genuine behavioral difference
+between the two controllers and is reported as a result, not fixed. A
+second, easier DWA goal succeeded, giving a fairer two-trial dataset.
+
+**Result used in report (Chapter 5):** MPPI's angular velocity stayed
+within ±0.5 rad/s with 0 oscillations; DWA swung between ±1.8 rad/s with
+3 oscillation events and one outright navigation failure on a harder goal.

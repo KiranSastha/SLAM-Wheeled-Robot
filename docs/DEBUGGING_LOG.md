@@ -258,3 +258,69 @@ second, easier DWA goal succeeded, giving a fairer two-trial dataset.
 **Result used in report (Chapter 5):** MPPI's angular velocity stayed
 within ±0.5 rad/s with 0 oscillations; DWA swung between ±1.8 rad/s with
 3 oscillation events and one outright navigation failure on a harder goal.
+
+
+---
+
+# Debugging Log — Phase 3 (SLAM Toolbox + AMCL) Integration
+
+## 12. AMCL `/initialpose` timing race condition with Nav2 bringup
+
+**Symptom:** On every fresh launch using a saved static map (`map_server` +
+`nav2_params_full_phase3.yaml`), the bringup consistently aborted after
+~30 seconds with:
+```
+[global_costmap.global_costmap]: Timed out waiting for transform from
+base_link to map to become available, tf error: Invalid frame ID "map"...
+[lifecycle_manager_navigation]: Failed to bring up all requested nodes.
+Aborting bringup.
+```
+AMCL itself logged, repeatedly and correctly:
+```
+[amcl]: AMCL cannot publish a pose or update the transform.
+Please set the initial pose...
+```
+
+**Cause:** This is not a configuration bug. AMCL behaves exactly as
+designed — it will not publish the `map → odom` transform until it
+receives an `/initialpose` message. However, `global_costmap` (and by
+extension the rest of `lifecycle_manager_navigation`'s bringup sequence)
+has a hard ~30-second timeout waiting for `base_link → map` to become
+available. If `/initialpose` is not published within that window, the
+entire navigation stack bringup aborts — even though AMCL itself never
+failed or errored.
+
+This creates a race condition: a person following typical Nav2
+documentation (launch first, then set initial pose afterward via RViz2)
+will reliably hit this failure, because the natural sequence — launch,
+wait for the system to "settle," then click 2D Pose Estimate — almost
+always exceeds the 30-second window. Sending the pose only after seeing
+the system in a final/settled state is, ironically, what causes the
+failure.
+
+**Diagnosis method:** Repeated clean (no manual lifecycle intervention)
+launches confirmed the abort happened identically every time, ruling out
+session-specific corruption. Reading the full log from the very first
+line — not just the final error — showed AMCL was healthy and simply
+waiting throughout the entire 30-second window.
+
+**Fix:** Publish `/initialpose` immediately (within the first 5–10
+seconds) after launching Nav2 — do not wait for the system to appear
+"ready" first:
+```bash
+ros2 launch turtlebot3_navigation2 navigation2.launch.py \
+  use_sim_time:=True \
+  map:=$HOME/ros2_ws/maps/phase3_map.yaml \
+  params_file:=.../nav2_params_full_phase3.yaml \
+  use_rviz:=False
+# In a second terminal, immediately (don't wait):
+ros2 topic pub --once /initialpose geometry_msgs/msg/PoseWithCovarianceStamped \
+  "{header: {frame_id: 'map'}, pose: {pose: {position: {x: 0.0, y: 0.0, z: 0.0}, orientation: {w: 1.0}}}}"
+```
+
+**Lesson reinforced:** When using a pre-built static map with AMCL (as
+opposed to live SLAM, which has no such race condition since it doesn't
+depend on an external pose message to begin publishing transforms),
+always send the initial pose proactively and immediately rather than
+reactively after observing a "ready" state — there may not be a visible
+indicator that the clock is already running out.

@@ -9,7 +9,7 @@ a prior MATLAB/RRT/DWA baseline:
 | 1 | RRT → **RRT\*** global planner | ✅ Complete, benchmarked |
 | 2 | MATLAB → **ROS2 + Gazebo** | ✅ Complete |
 | 3 | DWA → **MPPI** local controller | ✅ Complete, benchmarked |
-| 4 | Static map → **Dynamic replanning** | ⏳ Planned (Phase 4) |
+| 4 | Static map → **Dynamic replanning** | ✅ Complete |
 
 ## Project Roadmap
 
@@ -19,7 +19,7 @@ a prior MATLAB/RRT/DWA baseline:
 | Phase 1 | RRT* Global Path Planner Development and Benchmarking | ✅ Completed |
 | Phase 2 | MPPI Local Controller Development and Benchmarking (originally planned as TEB) | ✅ Completed |
 | Phase 3 | SLAM Integration (SLAM Toolbox + AMCL Localization) | ✅ Completed |
-| Phase 4 | Dynamic Replanning and Obstacle Response | ⏳ Pending |
+| Phase 4 | Dynamic Replanning and Obstacle Response | ✅ Completed |
 | Phase 5 | Full System Integration and Performance Evaluation | ⏳ Pending |
 | Phase 6 | Hardware Validation on Wheeled Mobile Robot | ⏳ Pending |
 

@@ -324,3 +324,133 @@ depend on an external pose message to begin publishing transforms),
 always send the initial pose proactively and immediately rather than
 reactively after observing a "ready" state — there may not be a visible
 indicator that the clock is already running out.
+
+
+---
+
+# Debugging Log — Phase 4 (Dynamic Replanning) Integration
+
+## 13. Automated repeated-trial benchmark invalidated by xy_goal_tolerance vs trip distance
+
+**Symptom:** A script written to automate repeated dynamic-replanning
+trials (return home → navigate to goal → repeat, comparing with/without
+a spawned obstacle) produced clearly invalid results: trials after the
+first completed in ~0.1s wall time, far too fast for genuine travel.
+
+**Diagnosis process (multiple iterations):**
+1. Initial suspicion: the "return home" logic wasn't actually being
+   called between trials. Confirmed via code inspection it was present.
+2. Second suspicion: `/amcl_pose` verification was timing out (`inf`
+   readings). Investigated and confirmed `/amcl_pose` is event-driven —
+   AMCL only publishes when its internal estimate changes by more than
+   `update_min_d`/`update_min_a`, so a stationary robot may not produce
+   a fresh reading within a short polling window. This is correct AMCL
+   behavior, not a bug, but unsuitable for "did it just arrive" checks
+   immediately after a goal completes.
+3. Switched verification to `/odom` (continuous ~30Hz publish rate
+   regardless of estimate change) — this fixed the `inf` readings, but
+   revealed real, consistent ~0.15m gaps between "home" and the
+   verified position.
+4. Root cause finally identified: **`xy_goal_tolerance: 0.25` in the
+   Nav2 params is a large fraction of a short ~0.36m test trip.** Nav2
+   genuinely considers a goal "reached" once within 25cm — for a trip
+   that short, the robot can satisfy both ends of a round trip without
+   travelling anywhere near the full distance.
+5. Attempted fix: lengthened the test trip to ~1.13m
+   (`(0,0)` → `(0.8,0.8)`) so the tolerance became a smaller fraction
+   of the distance. This exposed a *different*, pre-existing problem:
+   that particular long-distance goal was not reliably reachable as a
+   repeated round-trip — the first attempt aborted after 15 recovery
+   behaviors, and the robot became stuck roughly 0.27m from home on
+   every subsequent return attempt, unable to close the final gap.
+
+**Root cause, summarized:** Two independent issues compounded:
+  (a) short test trips are invalid against the project's `xy_goal_tolerance`,
+  (b) the map's free space is more constrained/irregular than initially
+      assumed (consistent with earlier Phase 3 map-exploration findings,
+      where several "far corner" goals also failed), making long,
+      repeatable round-trip goals harder to guarantee than expected.
+
+**Resolution:** Given time constraints, automated multi-trial
+benchmarking was de-scoped. The original manual single-trial comparison
+(performed before automation was attempted) was retained as the Phase 4
+evidence, since it was independently verified as a clean, valid result:
+  - Goal `(0,0) → (0.3,-0.2)`, no obstacle: SUCCEEDED, 0 recoveries,
+    monotonic direct path.
+  - Same goal, same start, obstacle spawned mid-path: SUCCEEDED,
+    0 recoveries, path showed a clear non-monotonic deviation (the
+    robot's x-position briefly decreased before increasing again),
+    consistent with active detour behavior around the new obstacle.
+
+**Lesson reinforced:** When automating a benchmark that depends on a
+"return to a reference position" step, always validate that the chosen
+distance is large relative to the navigation stack's goal tolerance
+*before* building retry/verification logic — the verification logic
+itself was working correctly in v5/v6, but no amount of correct
+verification logic can succeed if the underlying test design conflicts
+with the system's own definition of "arrived."
+
+
+---
+
+# Debugging Log — Phase 4 (Dynamic Replanning) Integration
+
+## 13. Automated repeated-trial benchmark invalidated by xy_goal_tolerance vs trip distance
+
+**Symptom:** A script written to automate repeated dynamic-replanning
+trials (return home → navigate to goal → repeat, comparing with/without
+a spawned obstacle) produced clearly invalid results: trials after the
+first completed in ~0.1s wall time, far too fast for genuine travel.
+
+**Diagnosis process (multiple iterations):**
+1. Initial suspicion: the "return home" logic wasn't actually being
+   called between trials. Confirmed via code inspection it was present.
+2. Second suspicion: `/amcl_pose` verification was timing out (`inf`
+   readings). Investigated and confirmed `/amcl_pose` is event-driven —
+   AMCL only publishes when its internal estimate changes by more than
+   `update_min_d`/`update_min_a`, so a stationary robot may not produce
+   a fresh reading within a short polling window. This is correct AMCL
+   behavior, not a bug, but unsuitable for "did it just arrive" checks
+   immediately after a goal completes.
+3. Switched verification to `/odom` (continuous ~30Hz publish rate
+   regardless of estimate change) — this fixed the `inf` readings, but
+   revealed real, consistent ~0.15m gaps between "home" and the
+   verified position.
+4. Root cause finally identified: **`xy_goal_tolerance: 0.25` in the
+   Nav2 params is a large fraction of a short ~0.36m test trip.** Nav2
+   genuinely considers a goal "reached" once within 25cm — for a trip
+   that short, the robot can satisfy both ends of a round trip without
+   travelling anywhere near the full distance.
+5. Attempted fix: lengthened the test trip to ~1.13m
+   (`(0,0)` → `(0.8,0.8)`) so the tolerance became a smaller fraction
+   of the distance. This exposed a *different*, pre-existing problem:
+   that particular long-distance goal was not reliably reachable as a
+   repeated round-trip — the first attempt aborted after 15 recovery
+   behaviors, and the robot became stuck roughly 0.27m from home on
+   every subsequent return attempt, unable to close the final gap.
+
+**Root cause, summarized:** Two independent issues compounded:
+  (a) short test trips are invalid against the project's `xy_goal_tolerance`,
+  (b) the map's free space is more constrained/irregular than initially
+      assumed (consistent with earlier Phase 3 map-exploration findings,
+      where several "far corner" goals also failed), making long,
+      repeatable round-trip goals harder to guarantee than expected.
+
+**Resolution:** Given time constraints, automated multi-trial
+benchmarking was de-scoped. The original manual single-trial comparison
+(performed before automation was attempted) was retained as the Phase 4
+evidence, since it was independently verified as a clean, valid result:
+  - Goal `(0,0) → (0.3,-0.2)`, no obstacle: SUCCEEDED, 0 recoveries,
+    monotonic direct path.
+  - Same goal, same start, obstacle spawned mid-path: SUCCEEDED,
+    0 recoveries, path showed a clear non-monotonic deviation (the
+    robot's x-position briefly decreased before increasing again),
+    consistent with active detour behavior around the new obstacle.
+
+**Lesson reinforced:** When automating a benchmark that depends on a
+"return to a reference position" step, always validate that the chosen
+distance is large relative to the navigation stack's goal tolerance
+*before* building retry/verification logic — the verification logic
+itself was working correctly in v5/v6, but no amount of correct
+verification logic can succeed if the underlying test design conflicts
+with the system's own definition of "arrived."

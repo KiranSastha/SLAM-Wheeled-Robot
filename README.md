@@ -1,7 +1,4 @@
-# SLAM Wheeled Robot — ROS2 Jazzy Navigation System
-
-M.Tech research internship project — NIT Calicut, Dept. of Electrical Engineering.
-Guide: Dr. Rahul Radhakrishnan.
+# SLAM Wheeled Robot
 
 A from-scratch autonomous navigation system for a differential-drive wheeled
 mobile robot, built in ROS2 Jazzy, implementing four key improvements over

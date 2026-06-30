@@ -1,0 +1,8 @@
+phase,trial,goal_x,goal_y,status,wall_time_s,nav_time_s,recoveries,error_code
+B_cycling,1,0.3,-0.2,SUCCEEDED,1.69,1.59,0,0
+B_cycling,2,0.5,0.5,RESULT_TIMEOUT,30.00175602699983,-1,-1,-1
+B_cycling,3,0.5,-0.5,RESULT_TIMEOUT,30.002243161000024,-1,-1,-1
+B_cycling,4,0.3,-0.2,SUCCEEDED,0.08,0.06,0,0
+B_cycling,5,0.5,0.5,RESULT_TIMEOUT,30.001678807999724,-1,-1,-1
+C_forced_failure,1,50.0,50.0,RESULT_TIMEOUT,15.002811847999965,-1,-1,-1
+C_recovery_check,1,0.3,-0.2,SUCCEEDED,5.84,5.75,1,0

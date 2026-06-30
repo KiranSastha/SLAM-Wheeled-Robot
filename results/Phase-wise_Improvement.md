@@ -9,7 +9,7 @@
 | Phase 2 | MPPI Local Controller Development and Benchmarking (originally planned as TEB) | ✅ Completed |
 | Phase 3 | SLAM Integration (SLAM Toolbox + AMCL Localization) | ✅ Completed |
 | Phase 4 | Dynamic Replanning and Obstacle Response | ✅ Completed |
-| Phase 5 | Full System Integration and Performance Evaluation | ⏳ Pending |
+| Phase 5 | Full System Integration and Performance Evaluation | ✅ Completed |
 | Phase 6 | Hardware Validation on Wheeled Mobile Robot | ⏳ Pending |
 
 ---
@@ -239,3 +239,125 @@ re-mapping step, using only live sensor data feeding into the existing
 Nav2 costmap and planner/controller pipeline already validated in
 Phases 1–3. This confirms the practical viability of the "map once,
 react live" approach intended for real hardware deployment in Phase 6.
+
+
+---
+
+## Phase 5 Results — Full System Integration & Rugged Testing
+
+### Objective
+To validate that all four improvements (RRT*, MPPI, SLAM Toolbox + AMCL,
+dynamic replanning) operate correctly together in a single, continuous
+session — not just individually as proven in Phases 1–4 — and to stress
+test the system's robustness over an extended, demanding run.
+
+### Method
+A single continuous session combined: live SLAM mapping, RRT* global
+planning, MPPI local control, a goal navigation, a dynamic obstacle
+spawn mid-session, a repeat navigation through the obstacle's vicinity,
+and a final map save — all without restarting the stack between steps.
+
+### Results
+
+| Step | Outcome |
+|---|---|
+| Live SLAM + RRT* + MPPI navigation (no obstacle) | ✅ SUCCEEDED, 0 recoveries |
+| Dynamic obstacle spawn mid-session | ✅ Successful |
+| Repeat navigation with obstacle present | ✅ SUCCEEDED, 0 recoveries |
+| Final map save | ✅ Successful — 384×384 cells, grown from the session's exploration |
+
+### Two real robustness findings during integration testing
+
+**1. AMCL + SLAM Toolbox cannot run simultaneously.**
+The combined Phase 3 params file (`nav2_params_full_phase3.yaml`)
+included AMCL in `lifecycle_manager_navigation`, which made sense for
+the static-map use case it was originally built for. When reused for
+a live-SLAM Phase 5 demo, both AMCL and SLAM Toolbox attempted to
+publish the `map → odom` transform simultaneously, causing AMCL to
+perpetually fail and eventually time out the entire goal request. A
+dedicated `nav2_params_live_slam.yaml` was created with AMCL fully
+removed from the node list, resolving the conflict. **Lesson: live
+SLAM and AMCL-on-static-map are mutually exclusive operating modes and
+must use separate params files — never combine them.**
+
+**2. The Twist/TwistStamped bridge fix is not permanent across system
+updates.** The one-time `sudo` fix applied during Phase 1 (changing
+`turtlebot3_burger_bridge.yaml`'s `cmd_vel` type from `TwistStamped`
+back to `Twist`) was found reverted partway through this multi-day
+project, with no warning or error — the controller was confirmed
+active and publishing `/cmd_vel` at a healthy rate, but the robot
+simply never moved, exactly reproducing the original Phase 1 symptom.
+**Lesson: this fix must be re-verified at the start of any new session
+or after any system package update, not assumed permanent.** For
+Phase 6 (hardware), this fix likely needs to be scripted into a
+startup check rather than relying on a one-time manual edit.
+
+### Conclusion
+The complete navigation stack — RRT* global planning, MPPI local
+control, SLAM Toolbox mapping, and dynamic obstacle avoidance — is
+verified to operate correctly together under sustained, realistic
+operating conditions, including recovering correctly after a real
+system-level regression was identified and fixed mid-session. The
+system is considered integration-complete and ready for hardware
+validation (Phase 6).
+
+
+---
+
+## Phase 5 Results — Full System Integration & Rugged Testing
+
+### Objective
+To validate that all four improvements (RRT*, MPPI, SLAM Toolbox + AMCL,
+dynamic replanning) operate correctly together in a single, continuous
+session — not just individually as proven in Phases 1–4 — and to stress
+test the system's robustness over an extended, demanding run.
+
+### Method
+A single continuous session combined: live SLAM mapping, RRT* global
+planning, MPPI local control, a goal navigation, a dynamic obstacle
+spawn mid-session, a repeat navigation through the obstacle's vicinity,
+and a final map save — all without restarting the stack between steps.
+
+### Results
+
+| Step | Outcome |
+|---|---|
+| Live SLAM + RRT* + MPPI navigation (no obstacle) | ✅ SUCCEEDED, 0 recoveries |
+| Dynamic obstacle spawn mid-session | ✅ Successful |
+| Repeat navigation with obstacle present | ✅ SUCCEEDED, 0 recoveries |
+| Final map save | ✅ Successful — 384×384 cells, grown from the session's exploration |
+
+### Two real robustness findings during integration testing
+
+**1. AMCL + SLAM Toolbox cannot run simultaneously.**
+The combined Phase 3 params file (`nav2_params_full_phase3.yaml`)
+included AMCL in `lifecycle_manager_navigation`, which made sense for
+the static-map use case it was originally built for. When reused for
+a live-SLAM Phase 5 demo, both AMCL and SLAM Toolbox attempted to
+publish the `map → odom` transform simultaneously, causing AMCL to
+perpetually fail and eventually time out the entire goal request. A
+dedicated `nav2_params_live_slam.yaml` was created with AMCL fully
+removed from the node list, resolving the conflict. **Lesson: live
+SLAM and AMCL-on-static-map are mutually exclusive operating modes and
+must use separate params files — never combine them.**
+
+**2. The Twist/TwistStamped bridge fix is not permanent across system
+updates.** The one-time `sudo` fix applied during Phase 1 (changing
+`turtlebot3_burger_bridge.yaml`'s `cmd_vel` type from `TwistStamped`
+back to `Twist`) was found reverted partway through this multi-day
+project, with no warning or error — the controller was confirmed
+active and publishing `/cmd_vel` at a healthy rate, but the robot
+simply never moved, exactly reproducing the original Phase 1 symptom.
+**Lesson: this fix must be re-verified at the start of any new session
+or after any system package update, not assumed permanent.** For
+Phase 6 (hardware), this fix likely needs to be scripted into a
+startup check rather than relying on a one-time manual edit.
+
+### Conclusion
+The complete navigation stack — RRT* global planning, MPPI local
+control, SLAM Toolbox mapping, and dynamic obstacle avoidance — is
+verified to operate correctly together under sustained, realistic
+operating conditions, including recovering correctly after a real
+system-level regression was identified and fixed mid-session. The
+system is considered integration-complete and ready for hardware
+validation (Phase 6).
